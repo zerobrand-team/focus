@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Orbit Focus</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-root: #0F0F10;
+            --bg-card: #161617;
+            --fg-primary: #EAEAEA;
+            --fg-secondary: #888888;
+            --border-color: #333333;
+            --border-active: #555555;
+            --accent-yellow: #FFD028;
+
+            --orbit-size: 75vw;
+            --orbit-stroke: 1px;
+            --dot-size: 9px;
+
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --rotation-duration: 240s;
+            --fade-timing: 0.6s;
+            --bezier-smooth: cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            background-color: var(--bg-root);
+            color: var(--fg-primary);
+            font-family: var(--font-family);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Orbit Container */
+        .orbit-container {
+            position: relative;
+            width: var(--orbit-size);
+            height: var(--orbit-size);
+            max-width: 400px;
+            max-height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .orbit-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: var(--orbit-stroke) solid var(--border-color);
+            opacity: 0.6;
+            transition: border-color 0.5s ease;
+        }
+
+        /* Orbit Track */
+        .orbit-track {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            /* Animation defined here but controlled via play-state */
+            animation: rotateOrbit var(--rotation-duration) linear infinite;
+            animation-play-state: paused;
+            opacity: 0;
+            transition: opacity 1s ease;
+            pointer-events: none;
+        }
+
+        .orbit-dot {
+            position: absolute;
+            top: -3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: var(--dot-size);
+            height: var(--dot-size);
+            background-color: var(--fg-primary);
+            border-radius: 50%;
+            box-shadow: 0 0 10px 1px rgba(255, 255, 255, 0.3);
+        }
+
+        /* Trigger Button */
+        .trigger-btn {
+            position: relative;
+            z-index: 10;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: #ffffff;
+            /* White background for idle state */
+            border: 1px solid var(--border-color);
+            color: #000000;
+            /* Black text for idle state */
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: -0.02em;
+            cursor: pointer;
+            transition: all 0.3s var(--bezier-smooth);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+            text-transform: uppercase;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        /* Mono font for numbers */
+        .time,
+        .session-time,
+        .btn-timer,
+        #listTotalTime {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
+        }
+
+        .btn-timer {
+            font-size: 11px;
+            color: var(--fg-secondary);
+            font-weight: 400;
+            opacity: 0;
+            height: 0;
+            transform: translateY(-5px);
+            transition: all 0.3s var(--bezier-smooth);
+        }
+
+        body[data-state="running"] .btn-timer {
+            opacity: 1;
+            height: 14px;
+            transform: translateY(0);
+        }
+
+        .trigger-btn:active {
+            transform: scale(0.95);
+            border-color: var(--fg-secondary);
+        }
+
+        /* Running State */
+        body[data-state="running"] .orbit-track {
+            opacity: 1;
+            animation-play-state: running;
+        }
+
+        body[data-state="running"] .trigger-btn {
+            background: var(--bg-root);
+            /* Dark background for running state */
+            border-color: var(--border-color);
+            color: var(--fg-secondary);
+        }
+
+        /* Discard Button */
+        .discard-btn {
+            background: transparent;
+            border: none;
+            color: var(--fg-secondary);
+            font-size: 13px;
+            margin-top: 0;
+            cursor: pointer;
+            padding: 8px 12px;
+            width: auto;
+            transition: color 0.2s;
+        }
+
+        .discard-btn:hover {
+            color: var(--fg-primary);
+        }
+
+        body[data-state="running"] .orbit-ring {
+            border-color: #2a2a2a;
+        }
+
+        /* Stopped State - Freeze orbit visible */
+        body[data-state="stopped"] .orbit-track {
+            opacity: 1;
+            animation-play-state: paused;
+        }
+
+        /* Stopped State - Show Feedback Overlay */
+        body[data-state="stopped"] #feedbackOverlay {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+
+        /* Feedback Overlay */
+        .feedback-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            background-color: rgba(15, 15, 16, 0.95);
+            backdrop-filter: blur(8px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s var(--bezier-smooth), transform 0.4s var(--bezier-smooth);
+            transform: translateY(20px) scale(0.95);
+            /* Slide down + scale down on hide */
+        }
+
+        body[data-state="stopped"] #feedbackOverlay,
+        .feedback-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+
+        /* Input Card */
+        .input-card {
+            width: 100%;
+            max-width: 340px;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s 0.2s var(--bezier-smooth);
+        }
+
+        body[data-state="stopped"] .input-card,
+        .feedback-overlay.active .input-card {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .question-label {
+            font-size: 18px;
+            font-weight: 400;
+            color: var(--fg-primary);
+            text-align: center;
+            letter-spacing: -0.03em;
+        }
+
+        .text-input {
+            width: 100%;
+            background: transparent;
+            border: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 0;
+            font-family: var(--font-family);
+            font-size: 20px;
+            color: var(--fg-primary);
+            text-align: center;
+            outline: none;
+            border-radius: 0;
+            transition: border-color 0.3s;
+        }
+
+        .text-input:focus {
+            border-bottom-color: var(--fg-secondary);
+        }
+
+        .text-input::placeholder {
+            color: #333;
+        }
+
+        .save-btn {
+            height: 36px;
+            border-radius: 18px;
+            padding: 0 24px;
+            background-color: var(--fg-primary);
+            color: var(--bg-root);
+            border: none;
+            font-family: var(--font-family);
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.2s;
+            margin-top: 0;
+            /* Handled by container */
+        }
+
+        .save-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Animations */
+        @keyframes rotateOrbit {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes breathe {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.6;
+            }
+
+            50% {
+                transform: scale(1.02);
+                opacity: 0.4;
+            }
+        }
+
+
+
+        .hidden {
+            display: none;
+        }
+
+        /* Menu Button - 4 dots in square */
+        .menu-btn {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 24px;
+            height: 24px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 4px;
+            padding: 4px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            z-index: 100;
+            opacity: 0.25;
+            transition: opacity 0.3s ease;
+        }
+
+        .menu-btn:hover {
+            opacity: 0.6;
+        }
+
+        /* Dots state */
+        .menu-btn .dot {
+            width: 4px;
+            height: 4px;
+            background-color: var(--fg-primary);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        /* Open state (Cross) */
+        .menu-btn.open .dot {
+            opacity: 0;
+        }
+
+        .menu-btn.open::before,
+        .menu-btn.open::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 14px;
+            height: 1px;
+            background-color: var(--fg-primary);
+            transform-origin: center;
+            opacity: 1;
+            transition: all 0.3s ease;
+        }
+
+        .menu-btn.open::before {
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+
+        .menu-btn.open::after {
+            transform: translate(-50%, -50%) rotate(-45deg);
+        }
+
+        .menu-btn.open {
+            opacity: 1;
+        }
+
+
+
+        /* Bottom Timer */
+        .bottom-timer {
+            position: fixed;
+            bottom: 32px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 400;
+            color: var(--fg-secondary);
+            opacity: 0.3;
+            letter-spacing: 0.05em;
+            z-index: 50;
+        }
+
+        .bottom-timer .time {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* View Containers */
+        .view {
+            position: fixed;
+            inset: 0;
+            background-color: var(--bg-root);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s var(--bezier-smooth);
+            z-index: 80;
+            overflow-y: auto;
+            padding: 80px 24px 100px;
+        }
+
+        .view.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* List View */
+        .list-view {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .list-empty {
+            text-align: center;
+            color: var(--fg-secondary);
+            font-size: 14px;
+            padding: 60px 24px;
+            opacity: 0.6;
+        }
+
+        .session-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .session-item:first-child {
+            border-top: 1px solid var(--border-color);
+        }
+
+        .session-name {
+            font-size: 15px;
+            color: var(--fg-primary);
+            font-weight: 400;
+        }
+
+        .session-meta {
+            text-align: right;
+            transition: transform 0.3s var(--bezier-smooth);
+        }
+
+        .session-time {
+            font-size: 13px;
+            color: var(--fg-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .session-actions {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translate(100%, -50%);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            /* padding-right: 8px; REMOVED */
+            transition: transform 0.3s var(--bezier-smooth);
+            z-index: 10;
+        }
+
+        .action-btn {
+            width: 28px;
+            height: 28px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--fg-secondary);
+            border-radius: 4px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .action-btn:hover {
+            color: var(--fg-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .session-item {
+            position: relative;
+            overflow: hidden;
+            /* padding-right: 12px; REMOVED to align strictly to right */
+        }
+
+        .session-item:hover .session-meta {
+            transform: translateX(-72px);
+            /* Slide text to make room for buttons */
+        }
+
+        .session-item:hover .session-actions {
+            transform: translate(0, -50%);
+        }
+
+        .session-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .session-date {
+            font-size: 11px;
+            color: var(--fg-secondary);
+            opacity: 0.6;
+        }
+
+        /* Calendar View */
+        .calendar-view {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .calendar-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--fg-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .calendar-nav {
+            background: transparent;
+            border: none;
+            color: var(--fg-secondary);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 8px 12px;
+            transition: color 0.2s;
+        }
+
+        .calendar-nav:hover {
+            color: var(--fg-primary);
+        }
+
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .calendar-weekday {
+            text-align: center;
+            font-size: 11px;
+            color: var(--fg-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 8px 0;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: var(--fg-secondary);
+            background: transparent;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .calendar-day:hover {
+            background: var(--bg-card);
+        }
+
+        .calendar-day.today {
+            color: var(--fg-primary);
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.05);
+            /* Subtle highlight for current day */
+            border-radius: 50%;
+        }
+
+        .calendar-day.other-month {
+            opacity: 0.3;
+        }
+
+        /* Workload Dots - Size based on hours (2-4-6-8 thresholds) */
+        .calendar-day.dot-sm::after,
+        .calendar-day.dot-md::after,
+        .calendar-day.dot-lg::after,
+        .calendar-day.dot-max::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            background: #555555;
+            border-radius: 50%;
+        }
+
+        .calendar-day.dot-sm::after {
+            width: 2px;
+            height: 2px;
+        }
+
+        .calendar-day.dot-md::after {
+            width: 5px;
+            height: 5px;
+        }
+
+        .calendar-day.dot-lg::after {
+            width: 7px;
+            height: 7px;
+        }
+
+        .calendar-day.dot-max::after {
+            width: 10px;
+            height: 10px;
+        }
+
+        .calendar-day.selected {
+            background: var(--fg-primary);
+            color: var(--bg-root);
+        }
+
+        .calendar-day.selected::after {
+            background: var(--bg-root);
+        }
+
+        /* Day Sessions */
+        .day-sessions {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .day-sessions-title {
+            font-size: 13px;
+            color: var(--fg-secondary);
+            margin: 0 auto 16px;
+            max-width: 400px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .day-sessions-empty {
+            font-size: 13px;
+            color: var(--fg-secondary);
+            opacity: 0.5;
+        }
+    </style>
+</head>
+
+<body data-state="idle">
+
+    <!-- Menu Button - 4 dots -->
+    <button class="menu-btn" id="menuBtn">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+    </button>
+
+    <!-- Unified Dashboard View -->
+    <div class="view" id="dashboardView">
+
+        <!-- Calendar Section -->
+        <div class="calendar-view">
+            <div class="calendar-header">
+                <button class="calendar-nav" id="prevMonth">←</button>
+                <div class="calendar-title" id="calendarTitle">February 2026</div>
+                <button class="calendar-nav" id="nextMonth">→</button>
+            </div>
+            <div class="calendar-weekdays">
+                <div class="calendar-weekday">Mon</div>
+                <div class="calendar-weekday">Tue</div>
+                <div class="calendar-weekday">Wed</div>
+                <div class="calendar-weekday">Thu</div>
+                <div class="calendar-weekday">Fri</div>
+                <div class="calendar-weekday">Sat</div>
+                <div class="calendar-weekday">Sun</div>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+
+        <!-- Spacer -->
+        <div style="height: 48px;"></div>
+
+        <!-- List Section -->
+        <!-- List Section -->
+        <div class="day-sessions-title">
+            <span>All Sessions</span>
+            <span id="listTotalTime"
+                style="color: var(--fg-primary); font-variant-numeric: tabular-nums;">00:00:00</span>
+        </div>
+        <div class="list-view">
+            <div class="list-empty" id="listEmpty">No sessions yet</div>
+            <div id="sessionsList"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Timer -->
+    <div class="bottom-timer">
+        <span class="time" id="todayTime">00:00:00</span> TODAY
+    </div>
+
+    <div class="orbit-container">
+        <!-- Static Ring -->
+        <div class="orbit-ring"></div>
+
+        <!-- Rotating Track with Dot -->
+        <div class="orbit-track" id="orbitTrack">
+            <div class="orbit-dot"></div>
+        </div>
+
+        <!-- Central Button -->
+        <!-- Central Button -->
+        <button class="trigger-btn" id="actionBtn">
+            <span class="btn-text">Start</span>
+            <span class="btn-timer" id="sessionTimer">00:00:00</span>
+        </button>
+    </div>
+
+    <!-- Feedback Overlay -->
+    <div class="feedback-overlay" id="feedbackOverlay">
+        <div class="input-card">
+            <div class="question-label">What were you working on?</div>
+            <input type="text" class="text-input" id="sessionInput"
+                placeholder="Leave blank to name &quot;Focus session&quot;" autocomplete="off">
+            <div
+                style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; margin-top: 24px;">
+                <button class="save-btn" id="saveBtn">Save</button>
+                <button class="discard-btn" id="discardBtn">Don't save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Session Overlay -->
+    <div class="feedback-overlay" id="editOverlay">
+        <div class="input-card">
+            <!-- Name Input -->
+            <div style="width: 100%;">
+                <label
+                    style="display: block; font-size: 11px; color: var(--fg-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Name</label>
+                <input type="text" class="text-input" id="editNameInput" placeholder="Session name" autocomplete="off"
+                    style="text-align: left;">
+            </div>
+
+            <!-- Duration Input -->
+            <div style="width: 100%;">
+                <label
+                    style="display: block; font-size: 11px; color: var(--fg-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Duration</label>
+                <input type="text" class="text-input" id="editDurationInput" placeholder="00:00:00"
+                    style="text-align: left; font-variant-numeric: tabular-nums;">
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 12px;">
+                <button class="save-btn" id="cancelEditBtn"
+                    style="background: transparent; border: 1px solid var(--border-color); color: var(--fg-secondary); flex: 1; margin-top: 0;">Cancel</button>
+                <button class="save-btn" id="saveEditBtn" style="flex: 2; margin-top: 0;">Save</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Delete Confirmation Overlay -->
+    <div class="feedback-overlay" id="deleteOverlay">
+        <div class="input-card" style="align-items: center; max-width: 280px;">
+            <div class="question-label" style="font-size: 16px;">Are you sure?</div>
+            <div style="display: flex; justify-content: center; gap: 12px; margin-top: 12px; width: 100%;">
+                <button class="save-btn" id="cancelDeleteBtn"
+                    style="background: transparent; border: 1px solid var(--border-color); color: var(--fg-secondary); width: auto; min-width: 80px; margin-top: 0;">Cancel</button>
+                <button class="save-btn" id="confirmDeleteBtn"
+                    style="width: auto; min-width: 80px; margin-top: 0; background-color: var(--fg-primary); color: var(--bg-root);">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // APPLICATION STATE
+        // ============================================
+        const state = {
+            status: 'idle', // idle, running, stopped
+            startTime: null,
+            totalTimeToday: 0,
+            menuOpen: false,
+            currentView: 'timer', // timer, list, calendar
+            calendarDate: new Date(),
+            selectedDate: null,
+            sessions: [],
+            editingId: null
+        };
+
+        // ============================================
+        // DOM ELEMENTS
+        // ============================================
+        const body = document.body;
+        const btn = document.getElementById('actionBtn');
+        const sessionTimer = document.getElementById('sessionTimer');
+        const track = document.getElementById('orbitTrack');
+        const input = document.getElementById('sessionInput');
+        const saveBtn = document.getElementById('saveBtn');
+        const discardBtn = document.getElementById('discardBtn');
+        const menuBtn = document.getElementById('menuBtn');
+        const todayTimeEl = document.getElementById('todayTime');
+        const dashboardView = document.getElementById('dashboardView');
+
+        // Edit DOM
+        const editOverlay = document.getElementById('editOverlay');
+        const editNameInput = document.getElementById('editNameInput');
+        const editDurationInput = document.getElementById('editDurationInput');
+        const saveEditBtn = document.getElementById('saveEditBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const deleteOverlay = document.getElementById('deleteOverlay');
+
+        // Views
+        const listEmpty = document.getElementById('listEmpty');
+        const sessionsList = document.getElementById('sessionsList');
+        const listTotalTime = document.getElementById('listTotalTime');
+
+        // Calendar
+        const calendarTitle = document.getElementById('calendarTitle');
+        const calendarGrid = document.getElementById('calendarGrid');
+        const prevMonthBtn = document.getElementById('prevMonth');
+        const nextMonthBtn = document.getElementById('nextMonth');
+
+        let timerInterval = null;
+
+        // ============================================
+        // LOCAL STORAGE
+        // ============================================
+
+        // Migrate old session format to new schema
+        function migrateSessionsIfNeeded(sessions) {
+            return sessions.map(s => {
+                // Already migrated
+                if (s.durationSeconds !== undefined) return s;
+
+                // Migrate from old format
+                return {
+                    id: typeof s.id === 'number' ? crypto.randomUUID() : s.id,
+                    startedAt: s.startedAt || null,
+                    endedAt: s.date || s.endedAt || new Date().toISOString(),
+                    durationSeconds: Math.round((s.duration || 0) / 1000),
+                    note: s.name || s.note || null
+                };
+            });
+        }
+
+        function loadSessions() {
+            const saved = localStorage.getItem('orbitFocusSessions');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                state.sessions = migrateSessionsIfNeeded(parsed);
+                // Re-save migrated data
+                saveSessions();
+            }
+            calculateTodayTime();
+        }
+
+        function saveSessions() {
+            localStorage.setItem('orbitFocusSessions', JSON.stringify(state.sessions));
+        }
+
+        function calculateTodayTime() {
+            const today = new Date().toDateString();
+            state.totalTimeToday = state.sessions
+                .filter(s => new Date(s.endedAt).toDateString() === today)
+                .reduce((sum, s) => sum + (s.durationSeconds * 1000), 0);
+        }
+
+        // ============================================
+        // UTILITIES
+        // ============================================
+        function formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return [hours, minutes, seconds]
+                .map(v => v.toString().padStart(2, '0'))
+                .join(':');
+        }
+
+        // Format seconds to display time
+        function formatSeconds(secs) {
+            const hours = Math.floor(secs / 3600);
+            const minutes = Math.floor((secs % 3600) / 60);
+            const seconds = secs % 60;
+            return [hours, minutes, seconds]
+                .map(v => v.toString().padStart(2, '0'))
+                .join(':');
+        }
+
+        function formatDate(date) {
+            const d = new Date(date);
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${months[d.getMonth()]} ${d.getDate()}`;
+        }
+
+        function formatFullDate(date) {
+            const d = new Date(date);
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+        }
+
+        function updateTimerDisplay() {
+            let currentSessionTime = 0;
+            if (state.status === 'running' && state.startTime) {
+                currentSessionTime = Date.now() - state.startTime;
+            }
+            todayTimeEl.textContent = formatTime(state.totalTimeToday + currentSessionTime);
+
+            if (sessionTimer && state.status === 'running') {
+                sessionTimer.textContent = formatTime(currentSessionTime);
+            }
+        }
+
+        // ============================================
+        // DASHBOARD CONTROL
+        // ============================================
+        menuBtn.addEventListener('click', () => {
+            state.menuOpen = !state.menuOpen;
+
+            // Toggle Button Animation
+            if (state.menuOpen) {
+                menuBtn.classList.add('open');
+                dashboardView.classList.add('active');
+
+                // Default to today selected
+                state.selectedDate = new Date();
+                // Ensure calendar is on current month
+                state.calendarDate = new Date();
+
+                // Render both views
+                renderCalendar();
+                renderList();
+            } else {
+                menuBtn.classList.remove('open');
+                dashboardView.classList.remove('active');
+            }
+        });
+
+        // ============================================
+        // LIST VIEW (Dashboard)
+        // ============================================
+        function renderList() {
+            // Sort by date descending
+            const allSorted = [...state.sessions].sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
+            let displaySessions = allSorted;
+
+            // Filter if date selected
+            if (state.selectedDate) {
+                const selStr = state.selectedDate.toDateString();
+                displaySessions = allSorted.filter(s => new Date(s.endedAt).toDateString() === selStr);
+
+                // Update header text to show we are filtering
+                const titleSpan = document.querySelector('.day-sessions-title span');
+                if (titleSpan) titleSpan.textContent = formatDate(state.selectedDate);
+            } else {
+                const titleSpan = document.querySelector('.day-sessions-title span');
+                if (titleSpan) titleSpan.textContent = "All Sessions";
+            }
+
+            // Update Total Time Header (for displayed sessions)
+            if (listTotalTime) {
+                const totalSeconds = displaySessions.reduce((sum, s) => sum + s.durationSeconds, 0);
+                listTotalTime.textContent = formatSeconds(totalSeconds);
+            }
+
+            if (displaySessions.length === 0) {
+                listEmpty.style.display = 'block';
+                listEmpty.textContent = state.selectedDate ? "No sessions on this day" : "No sessions yet";
+                sessionsList.innerHTML = '';
+                return;
+            }
+
+            listEmpty.style.display = 'none';
+
+            sessionsList.innerHTML = displaySessions.map(session => `
+                <div class="session-item" data-id="${session.id}">
+                    <div class="session-info">
+                        <div class="session-name">${session.note || 'Untitled session'}</div>
+                    </div>
+                    <div class="session-meta">
+                        <div class="session-time">${formatSeconds(session.durationSeconds)}</div>
+                    </div>
+                    <div class="session-actions">
+                        <button class="action-btn edit-btn" title="Edit">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                        </button>
+                        <button class="action-btn delete-btn" title="Delete">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ============================================
+        // CALENDAR VIEW (Dashboard)
+        // ============================================
+        function renderCalendar() {
+            const year = state.calendarDate.getFullYear();
+            const month = state.calendarDate.getMonth();
+
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            calendarTitle.textContent = `${months[month]} ${year}`;
+
+            // Get first day of month and total days
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+
+            // Get starting day (0 = Sunday, convert to Monday start)
+            let startDay = firstDay.getDay() - 1;
+            if (startDay < 0) startDay = 6;
+
+            // Get days from previous month
+            const prevMonthLastDay = new Date(year, month, 0).getDate();
+
+            // Calculate work hours per day for this month
+            const dayWorkHours = new Map();
+            state.sessions
+                .filter(s => {
+                    const d = new Date(s.endedAt);
+                    return d.getFullYear() === year && d.getMonth() === month;
+                })
+                .forEach(s => {
+                    const day = new Date(s.endedAt).getDate();
+                    const hours = s.durationSeconds / 3600;
+                    dayWorkHours.set(day, (dayWorkHours.get(day) || 0) + hours);
+                });
+
+            // Get dot size class based on hours (2-5-8-10 thresholds)
+            function getDotSizeClass(hours) {
+                if (hours <= 0) return '';
+                const capped = Math.min(hours, 10);
+                if (capped <= 2) return 'dot-sm';
+                if (capped <= 5) return 'dot-md';
+                if (capped <= 8) return 'dot-lg';
+                return 'dot-max';
+            }
+
+            const today = new Date();
+            const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+
+            let html = '';
+
+            // Previous month days
+            for (let i = startDay - 1; i >= 0; i--) {
+                const day = prevMonthLastDay - i;
+                html += `<button class="calendar-day other-month" disabled>${day}</button>`;
+            }
+
+            // Current month days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const classes = ['calendar-day'];
+
+                // Check if this day matches selectedDate
+                const currentDate = new Date(year, month, day);
+                const isSelected = state.selectedDate &&
+                    state.selectedDate.toDateString() === currentDate.toDateString();
+
+                if (isCurrentMonth && day === today.getDate()) classes.push('today');
+
+                // Add dot size class based on work hours
+                const hours = dayWorkHours.get(day) || 0;
+                const dotClass = getDotSizeClass(hours);
+                if (dotClass) classes.push(dotClass);
+
+                if (isSelected) classes.push('selected');
+
+                html += `<button class="${classes.join(' ')}" data-day="${day}">${day}</button>`;
+            }
+
+            // Next month days
+            const totalCells = startDay + daysInMonth;
+            const remaining = 42 - totalCells; // 6 rows * 7 days
+            for (let i = 1; i <= remaining && remaining < 14; i++) {
+                html += `<button class="calendar-day other-month" disabled>${i}</button>`;
+            }
+
+            calendarGrid.innerHTML = html;
+        }
+
+        function renderDaySessions() {
+            const date = state.selectedDate || new Date();
+            daySessionsTitle.textContent = formatFullDate(date);
+
+            const dateStr = date.toDateString();
+            const daySessions = state.sessions.filter(s => new Date(s.endedAt).toDateString() === dateStr);
+
+            if (daySessions.length === 0) {
+                daySessionsList.innerHTML = '<div class="day-sessions-empty">No sessions</div>';
+                return;
+            }
+
+            daySessionsList.innerHTML = daySessions.map(session => `
+                <div class="session-item">
+                    <div class="session-name">${session.note || 'Untitled session'}</div>
+                    <div class="session-meta">
+                        <div class="session-time">${formatSeconds(session.durationSeconds)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ============================================
+        // CALENDAR NAVIGATION
+        // ============================================
+
+        prevMonthBtn.addEventListener('click', () => {
+            state.calendarDate.setMonth(state.calendarDate.getMonth() - 1);
+            renderCalendar();
+        });
+
+        nextMonthBtn.addEventListener('click', () => {
+            state.calendarDate.setMonth(state.calendarDate.getMonth() + 1);
+            renderCalendar();
+        });
+
+        // ============================================
+        // SESSION MANAGEMENT
+        // ============================================
+        btn.addEventListener('click', () => {
+            if (state.status === 'idle') {
+                startSession();
+            } else if (state.status === 'running') {
+                stopSession();
+            }
+        });
+
+        saveBtn.addEventListener('click', () => {
+            saveSessionData();
+        });
+
+        if (discardBtn) {
+            discardBtn.addEventListener('click', resetSystem);
+        }
+
+        // Edit & Delete Listeners
+        sessionsList.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.edit-btn');
+            const deleteBtn = e.target.closest('.delete-btn');
+            const item = e.target.closest('.session-item');
+
+            if (!item) return;
+            const id = item.dataset.id; // UUID string, not integer
+
+            if (editBtn) {
+                openEditSession(id);
+            } else if (deleteBtn) {
+                confirmDeleteSession(id);
+            }
+        });
+
+        // Calendar Interaction
+        calendarGrid.addEventListener('click', (e) => {
+            if (e.target.classList.contains('calendar-day') && !e.target.disabled) {
+                const day = parseInt(e.target.dataset.day);
+
+                const year = state.calendarDate.getFullYear();
+                const month = state.calendarDate.getMonth();
+                const clickedDate = new Date(year, month, day);
+
+                // Toggle logic
+                if (state.selectedDate && clickedDate.toDateString() === state.selectedDate.toDateString()) {
+                    state.selectedDate = null; // deselect
+                } else {
+                    state.selectedDate = clickedDate;
+                }
+
+                renderCalendar();
+                renderList();
+            }
+        });
+
+        let deleteId = null;
+
+        function confirmDeleteSession(id) {
+            deleteId = id;
+            deleteOverlay.classList.add('active');
+        }
+
+        function deleteSession() {
+            if (!deleteId) return;
+
+            state.sessions = state.sessions.filter(s => s.id !== deleteId);
+            saveSessions();
+            renderList();
+            renderCalendar();
+            calculateTodayTime();
+            updateTimerDisplay();
+
+            closeDeleteOverlay();
+        }
+
+        function closeDeleteOverlay() {
+            deleteOverlay.classList.remove('active');
+            deleteId = null;
+        }
+
+        // Delete Overlay Listeners
+        document.getElementById('confirmDeleteBtn').addEventListener('click', deleteSession);
+        document.getElementById('cancelDeleteBtn').addEventListener('click', closeDeleteOverlay);
+
+        saveEditBtn.addEventListener('click', saveEditSession);
+
+        cancelEditBtn.addEventListener('click', () => {
+            editOverlay.classList.remove('active');
+        });
+
+        function openEditSession(id) {
+            const session = state.sessions.find(s => s.id === id);
+            if (!session) return;
+
+            state.editingId = id;
+            editNameInput.value = session.note || '';
+            editDurationInput.value = formatSeconds(session.durationSeconds); // HH:MM:SS
+
+            // Show Overlay
+            editOverlay.classList.add('active');
+            setTimeout(() => editNameInput.focus(), 100);
+        }
+
+        function saveEditSession() {
+            if (!state.editingId) return;
+
+            const note = editNameInput.value.trim();
+            const timeStr = editDurationInput.value.trim();
+
+            // Parse HH:MM:SS
+            const parts = timeStr.split(':').map(p => parseInt(p) || 0);
+            let totalSeconds = 0;
+
+            if (parts.length === 3) {
+                totalSeconds = (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+            } else if (parts.length === 2) {
+                totalSeconds = (parts[0] * 60) + parts[1];
+            } else if (parts.length === 1) {
+                totalSeconds = parts[0];
+            }
+
+            if (totalSeconds < 0) return; // Validation
+
+            const sessionIndex = state.sessions.findIndex(s => s.id === state.editingId);
+            if (sessionIndex !== -1) {
+                state.sessions[sessionIndex].note = note || null;
+                state.sessions[sessionIndex].durationSeconds = totalSeconds;
+
+                saveSessions();
+                renderList();
+                calculateTodayTime(); // Update total if needed
+                if (listTotalTime) {
+                    // Recalculate total immediately for UI
+                    const totalSecs = state.sessions.reduce((sum, s) => sum + s.durationSeconds, 0);
+                    listTotalTime.textContent = formatSeconds(totalSecs);
+                }
+            }
+
+            // Hide Overlay
+            editOverlay.classList.remove('active');
+            state.editingId = null;
+        }
+
+        function startSession() {
+            state.status = 'running';
+            state.startTime = Date.now();
+
+            body.setAttribute('data-state', 'running');
+            const btnText = btn.querySelector('.btn-text');
+            if (btnText) btnText.textContent = "Stop";
+
+            timerInterval = setInterval(updateTimerDisplay, 1000);
+            updateTimerDisplay();
+        }
+
+        function stopSession() {
+            state.status = 'stopped';
+
+            if (state.startTime) {
+                state.totalTimeToday += Date.now() - state.startTime;
+            }
+
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            updateTimerDisplay();
+
+            body.setAttribute('data-state', 'stopped');
+
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function saveSessionData() {
+            const endTime = Date.now();
+            const durationMs = state.startTime ? endTime - state.startTime : 0;
+
+            if (durationMs > 0) {
+                state.sessions.push({
+                    id: crypto.randomUUID(),
+                    startedAt: state.startTime ? new Date(state.startTime).toISOString() : null,
+                    endedAt: new Date(endTime).toISOString(),
+                    durationSeconds: Math.round(durationMs / 1000),
+                    note: input.value.trim() || null
+                });
+                saveSessions();
+            }
+
+            resetSystem();
+        }
+
+        function resetSystem() {
+            state.status = 'idle';
+            state.startTime = null;
+            input.value = '';
+
+            body.setAttribute('data-state', 'idle');
+            const btnText = btn.querySelector('.btn-text');
+            if (btnText) btnText.textContent = "Start";
+            if (sessionTimer) sessionTimer.textContent = "00:00:00";
+
+            // Reset animation to 0 for next session
+            track.style.animation = 'none';
+            track.offsetHeight; /* trigger reflow */
+            track.style.animation = '';
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        loadSessions();
+        updateTimerDisplay();
+    </script>
+
+</body>
+
+</html>
