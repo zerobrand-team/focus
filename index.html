@@ -121,6 +121,10 @@
             gap: 2px;
         }
 
+        .trigger-btn:hover {
+            transform: scale(1.2);
+        }
+
         /* Mono font for numbers */
         .time,
         .session-time,
@@ -331,7 +335,7 @@
         /* Menu Button - 4 dots in square */
         .menu-btn {
             position: fixed;
-            top: 24px;
+            bottom: 32px;
             left: 50%;
             transform: translateX(-50%);
             width: 24px;
@@ -345,7 +349,7 @@
             border: none;
             cursor: pointer;
             z-index: 100;
-            opacity: 0.25;
+            opacity: 0.4;
             transition: opacity 0.3s ease;
         }
 
@@ -398,14 +402,14 @@
         /* Bottom Timer */
         .bottom-timer {
             position: fixed;
-            bottom: 32px;
+            top: 24px;
             left: 0;
             right: 0;
             text-align: center;
             font-size: 13px;
             font-weight: 400;
             color: var(--fg-secondary);
-            opacity: 0.3;
+            opacity: 0.5;
             letter-spacing: 0.05em;
             z-index: 50;
         }
