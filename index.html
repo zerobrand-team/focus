@@ -1404,6 +1404,14 @@
             setTimeout(() => input.focus(), 100);
         }
 
+        // Add Enter Key Support for saving session
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                saveSessionData();
+                input.blur(); // dismiss keyboard on mobile
+            }
+        });
+
         function saveSessionData() {
             const endTime = Date.now();
             const durationMs = state.startTime ? endTime - state.startTime : 0;
