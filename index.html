@@ -436,6 +436,18 @@
             pointer-events: auto;
         }
 
+        .view::after {
+            content: '';
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 140px;
+            background: linear-gradient(to top, var(--bg-root) 20%, rgba(15, 15, 16, 0) 100%);
+            z-index: 95;
+            pointer-events: none;
+        }
+
         /* List View */
         .list-view {
             display: flex;
@@ -693,6 +705,57 @@
             font-size: 13px;
             color: var(--fg-secondary);
             opacity: 0.5;
+        }
+
+        /* Animation Classes */
+        @keyframes fallToMenu {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(calc(50vh - 40px)) scale(0.05);
+                opacity: 0;
+            }
+        }
+
+        .anim-fall {
+            animation: fallToMenu 0.6s ease-in-out forwards !important;
+            pointer-events: none;
+        }
+
+        @keyframes gentlePulse {
+            0% {
+                transform: translateX(-50%) scale(1);
+            }
+
+            70% {
+                transform: translateX(-50%) scale(1.3);
+            }
+
+            100% {
+                transform: translateX(-50%) scale(1);
+            }
+        }
+
+        .anim-pulse {
+            animation: gentlePulse 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .anim-fade-out {
+            animation: fadeOut 0.6s ease-in-out forwards !important;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -1356,7 +1419,31 @@
                 saveSessions();
             }
 
-            resetSystem();
+            // Animation
+            const overlay = document.getElementById('feedbackOverlay');
+            const card = overlay ? overlay.querySelector('.input-card') : null;
+
+            if (card && overlay) {
+                card.classList.add('anim-fall');
+                overlay.classList.add('anim-fade-out');
+
+                // Trigger pulse slightly before fall ends
+                setTimeout(() => {
+                    if (menuBtn) {
+                        menuBtn.classList.add('anim-pulse');
+                        setTimeout(() => menuBtn.classList.remove('anim-pulse'), 400);
+                    }
+                }, 600);
+
+                // Reset after animation
+                setTimeout(() => {
+                    resetSystem();
+                    card.classList.remove('anim-fall');
+                    overlay.classList.remove('anim-fade-out');
+                }, 800);
+            } else {
+                resetSystem();
+            }
         }
 
         function resetSystem() {
