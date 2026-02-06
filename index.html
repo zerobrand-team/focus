@@ -1152,7 +1152,7 @@
             sessionsList.innerHTML = displaySessions.map(session => `
                 <div class="session-item" data-id="${session.id}">
                     <div class="session-info">
-                        <div class="session-name">${session.note || 'Untitled session'}</div>
+                        <div class="session-name">${session.note || 'Focus session'}</div>
                     </div>
                     <div class="session-meta">
                         <div class="session-time">${formatSeconds(session.durationSeconds)}</div>
