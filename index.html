@@ -165,10 +165,12 @@
         body[data-state="running"] .trigger-btn {
             background: var(--bg-root);
             /* Dark background for running state */
-            border-color: #3A3A3A;
+            border-color: #4F4F4F;
             color: var(--fg-secondary);
             transition: color 0.3s ease, border-color 0.3s ease, transform 0.3s var(--bezier-smooth);
         }
+
+
 
         /* Discard Button */
         .discard-btn {
@@ -188,7 +190,7 @@
         }
 
         body[data-state="running"] .orbit-ring {
-            border-color: #3A3A3A;
+            border-color: #4F4F4F;
         }
 
         /* Stopped State - Freeze orbit visible */
@@ -776,7 +778,7 @@
 
         .brand-logo {
             width: 24px;
-            height: 16px;
+            height: 24px;
             object-fit: contain;
             opacity: 0.8;
             transition: opacity 0.3s;
@@ -813,6 +815,60 @@
             opacity: 1;
             transform: translate(0, -50%);
         }
+
+        /* Add Session Button */
+        .add-session-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--fg-secondary);
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .add-session-btn:hover {
+            color: var(--fg-primary);
+            border-color: var(--fg-secondary);
+        }
+
+        /* Sync Footer */
+        .sync-footer {
+            text-align: center;
+            padding: 32px 0 16px;
+            opacity: 1;
+            /* Always visible */
+            transition: opacity 0.3s;
+        }
+
+        .sync-footer:hover {
+            opacity: 1;
+        }
+
+        .sync-btn {
+            background: transparent;
+            border: none;
+            color: var(--fg-secondary);
+            font-size: 11px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sync-btn:hover {
+            opacity: 1;
+        }
     </style>
 </head>
 
@@ -831,7 +887,7 @@
 
         <!-- Brand Logo Header -->
         <a href="https://zerobrand.xyz/" target="_blank" class="brand-header" style="text-decoration: none;">
-            <img src="logo.png" alt="ZeroBrand" class="brand-logo">
+            <img src="public/logo.png" alt="ZeroBrand" class="brand-logo">
             <div class="brand-text">Made by ZeroBrand</div>
         </a>
 
@@ -860,13 +916,29 @@
         <!-- List Section -->
         <!-- List Section -->
         <div class="day-sessions-title">
-            <span>All Sessions</span>
-            <span id="listTotalTime"
-                style="color: var(--fg-primary); font-variant-numeric: tabular-nums;">00:00:00</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span>All Sessions</span>
+                <span id="listTotalTime"
+                    style="color: var(--fg-primary); font-variant-numeric: tabular-nums;">00:00:00</span>
+            </div>
+            <button class="add-session-btn" id="addSessionBtn" title="Add Session">+</button>
         </div>
         <div class="list-view">
             <div class="list-empty" id="listEmpty">No sessions yet</div>
             <div id="sessionsList"></div>
+
+            <!-- Sync Footer -->
+            <div class="sync-footer">
+                <button class="sync-btn" id="syncBtn">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                        <polyline points="10 17 15 12 10 7"></polyline>
+                        <line x1="15" y1="12" x2="3" y2="12"></line>
+                    </svg>
+                    Save & Synchronize
+                </button>
+            </div>
         </div>
     </div>
 
@@ -946,7 +1018,19 @@
             </div>
         </div>
     </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      const SUPABASE_URL = "https://sgmvizxpcbquzrgvlsbu.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnbXZpenhwY2JxdXpyZ2x2c2J1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0Njk4NTMsImV4cCI6MjA4NjA0NTg1M30.8LEmorn4PImHavZQnHTXbnvleyZvXh_bx1k56WWzBic";
 
+      const supabase = supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
+      );
+    </script>
+
+    
     <script>
         // ============================================
         // APPLICATION STATE
@@ -976,6 +1060,7 @@
         const menuBtn = document.getElementById('menuBtn');
         const todayTimeEl = document.getElementById('todayTime');
         const dashboardView = document.getElementById('dashboardView');
+        const addSessionBtn = document.getElementById('addSessionBtn');
 
         // Edit DOM
         const editOverlay = document.getElementById('editOverlay');
@@ -1092,9 +1177,13 @@
         // DASHBOARD CONTROL
         // ============================================
         menuBtn.addEventListener('click', () => {
-            state.menuOpen = !state.menuOpen;
+            toggleMenu();
+        });
 
-            // Toggle Button Animation
+        function toggleMenu(forceState = null) {
+            const newState = forceState !== null ? forceState : !state.menuOpen;
+            state.menuOpen = newState;
+
             if (state.menuOpen) {
                 menuBtn.classList.add('open');
                 dashboardView.classList.add('active');
@@ -1110,6 +1199,13 @@
             } else {
                 menuBtn.classList.remove('open');
                 dashboardView.classList.remove('active');
+            }
+        }
+
+        // Click outside to close
+        dashboardView.addEventListener('click', (e) => {
+            if (e.target === dashboardView) {
+                toggleMenu(false);
             }
         });
 
@@ -1152,7 +1248,7 @@
             sessionsList.innerHTML = displaySessions.map(session => `
                 <div class="session-item" data-id="${session.id}">
                     <div class="session-info">
-                        <div class="session-name">${session.note || 'Focus session'}</div>
+                        <div class="session-name">${session.note || 'Untitled session'}</div>
                     </div>
                     <div class="session-meta">
                         <div class="session-time">${formatSeconds(session.durationSeconds)}</div>
@@ -1312,20 +1408,42 @@
         }
 
         // Edit & Delete Listeners
+        // Edit & Delete Listeners
         sessionsList.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.edit-btn');
             const deleteBtn = e.target.closest('.delete-btn');
             const item = e.target.closest('.session-item');
 
             if (!item) return;
-            const id = item.dataset.id; // UUID string, not integer
+            const id = item.dataset.id;
 
-            if (editBtn) {
-                openEditSession(id);
-            } else if (deleteBtn) {
+            // Priority: Delete Btn > Edit Btn > Item Click
+            if (deleteBtn) {
                 confirmDeleteSession(id);
+                e.stopPropagation(); // Prevent item click
+            } else if (editBtn) {
+                openEditSession(id);
+                e.stopPropagation();
+            } else {
+                // Click anywhere else on item -> Edit
+                openEditSession(id);
             }
         });
+
+        // Add Session Button
+        if (addSessionBtn) {
+            addSessionBtn.addEventListener('click', openCreateSession);
+        }
+
+        function openCreateSession() {
+            state.editingId = 'NEW';
+            editNameInput.value = '';
+            editDurationInput.value = '00:00:00';
+
+            // Show Overlay
+            editOverlay.classList.add('active');
+            setTimeout(() => editNameInput.focus(), 100);
+        }
 
         // Calendar Interaction
         calendarGrid.addEventListener('click', (e) => {
@@ -1416,20 +1534,34 @@
 
             if (totalSeconds < 0) return; // Validation
 
-            const sessionIndex = state.sessions.findIndex(s => s.id === state.editingId);
-            if (sessionIndex !== -1) {
-                state.sessions[sessionIndex].note = note || null;
-                state.sessions[sessionIndex].durationSeconds = totalSeconds;
-
-                saveSessions();
-                renderList();
-                calculateTodayTime(); // Update total if needed
-                if (listTotalTime) {
-                    // Recalculate total immediately for UI
-                    const totalSecs = state.sessions.reduce((sum, s) => sum + s.durationSeconds, 0);
-                    listTotalTime.textContent = formatSeconds(totalSecs);
+            if (state.editingId === 'NEW') {
+                // Create New Session
+                state.sessions.push({
+                    id: crypto.randomUUID(),
+                    // If a date is selected in calendar, use that date + current time
+                    // Otherwise use now
+                    endedAt: state.selectedDate ?
+                        new Date(state.selectedDate.setHours(new Date().getHours(), new Date().getMinutes())).toISOString()
+                        : new Date().toISOString(),
+                    durationSeconds: totalSeconds,
+                    note: note || 'Manual Session'
+                });
+                state.sessions.sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
+            } else {
+                // Update Existing
+                const sessionIndex = state.sessions.findIndex(s => s.id === state.editingId);
+                if (sessionIndex !== -1) {
+                    state.sessions[sessionIndex].note = note || null;
+                    state.sessions[sessionIndex].durationSeconds = totalSeconds;
                 }
             }
+
+            saveSessions();
+            renderList();
+            renderCalendar(); // Update dots
+            calculateTodayTime();
+
+
 
             // Hide Overlay
             editOverlay.classList.remove('active');
@@ -1531,12 +1663,48 @@
             track.offsetHeight; /* trigger reflow */
             track.style.animation = '';
         }
+        
+// ============================================
+// AUTH / GOOGLE LOGIN
+// ============================================
+async function handleSyncClick() {
+  const { data } = await supabase.auth.getSession();
 
-        // ============================================
-        // INITIALIZATION
-        // ============================================
-        loadSessions();
-        updateTimerDisplay();
+  // если не залогинен → логин
+  if (!data.session) {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    return;
+  }
+
+  // если уже залогинен (пока просто заглушка)
+  console.log('Logged in as:', data.session.user.email);
+}
+
+const syncBtn = document.getElementById('syncBtn');
+if (syncBtn) {
+  syncBtn.addEventListener('click', handleSyncClick);
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
+async function init() {
+  loadSessions();
+  updateTimerDisplay();
+
+  const { data } = await supabase.auth.getSession();
+  if (data.session) {
+    const syncBtn = document.getElementById('syncBtn');
+    if (syncBtn) syncBtn.textContent = 'Synced';
+  }
+}
+
+init();
     </script>
 
 </body>
