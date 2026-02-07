@@ -1699,7 +1699,12 @@ async function syncSessionsToSupabase() {
   console.log('Synced', rows.length, 'sessions');
 
   const syncBtn = document.getElementById('syncBtn');
-  if (syncBtn) syncBtn.textContent = 'Synced';
+  console.log('syncBtn:', syncBtn);
+  if (syncBtn) {
+    syncBtn.addEventListener('click', () => {
+      console.log('SYNC CLICKED');
+      handleSyncClick();
+    });
 }
 
 // ============================================
