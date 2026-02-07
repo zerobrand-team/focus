@@ -1538,8 +1538,8 @@
                 // Create New Session
                 state.sessions.push({
                     id: crypto.randomUUID(),
-                    // If a date is selected in calendar, use that date + current time
-                    // Otherwise use now
+                    local_id: crypto.randomUUID(),
+                    startedAt: state.startTime ? new Date(state.startTime).toISOString() : null,
                     endedAt: state.selectedDate ?
                         new Date(state.selectedDate.setHours(new Date().getHours(), new Date().getMinutes())).toISOString()
                         : new Date().toISOString(),
@@ -1665,6 +1665,44 @@
         }
         
 // ============================================
+// SUPABASE SYNC
+// ============================================
+async function syncSessionsToSupabase() {
+  const { data } = await supabase.auth.getSession();
+  const user = data?.session?.user;
+
+  if (!user) return;
+
+  if (!state.sessions.length) {
+    console.log('No sessions to sync');
+    return;
+  }
+
+  const rows = state.sessions.map(s => ({
+    user_id: user.id,
+    ended_at: s.endedAt,
+    duration_seconds: s.durationSeconds,
+    note: s.note || null,
+    local_id: s.id
+  }));
+
+  const { error } = await supabase
+    .from('focus')
+    .upsert(rows, { onConflict: 'local_id' });
+
+  if (error) {
+    console.error('Sync failed:', error);
+    alert('Sync failed');
+    return;
+  }
+
+  console.log('Synced', rows.length, 'sessions');
+
+  const syncBtn = document.getElementById('syncBtn');
+  if (syncBtn) syncBtn.textContent = 'Synced';
+}
+
+// ============================================
 // AUTH / GOOGLE LOGIN
 // ============================================
 async function handleSyncClick() {
@@ -1681,14 +1719,10 @@ async function handleSyncClick() {
     return;
   }
 
-  // если уже залогинен (пока просто заглушка)
-  console.log('Logged in as:', data.session.user.email);
+  // если залогинен → синхронизация
+  await syncSessionsToSupabase();
 }
 
-const syncBtn = document.getElementById('syncBtn');
-if (syncBtn) {
-  syncBtn.addEventListener('click', handleSyncClick);
-}
 
 // ============================================
 // INITIALIZATION
