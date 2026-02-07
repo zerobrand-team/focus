@@ -837,38 +837,6 @@
             color: var(--fg-primary);
             border-color: var(--fg-secondary);
         }
-
-        /* Sync Footer */
-        .sync-footer {
-            text-align: center;
-            padding: 32px 0 16px;
-            opacity: 1;
-            /* Always visible */
-            transition: opacity 0.3s;
-        }
-
-        .sync-footer:hover {
-            opacity: 1;
-        }
-
-        .sync-btn {
-            background: transparent;
-            border: none;
-            color: var(--fg-secondary);
-            font-size: 11px;
-            cursor: pointer;
-            opacity: 0.5;
-            transition: opacity 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .sync-btn:hover {
-            opacity: 1;
-        }
     </style>
 </head>
 
@@ -927,18 +895,7 @@
             <div class="list-empty" id="listEmpty">No sessions yet</div>
             <div id="sessionsList"></div>
 
-            <!-- Sync Footer -->
-            <div class="sync-footer">
-                <button class="sync-btn" id="syncBtn">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                        <polyline points="10 17 15 12 10 7"></polyline>
-                        <line x1="15" y1="12" x2="3" y2="12"></line>
-                    </svg>
-                    Save & Synchronize
-                </button>
-            </div>
+
         </div>
     </div>
 
@@ -1018,19 +975,7 @@
             </div>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-      const SUPABASE_URL = "https://sgmvizxpcbquzrgvlsbu.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnbXZpenhwY2JxdXpyZ2x2c2J1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0Njk4NTMsImV4cCI6MjA4NjA0NTg1M30.8LEmorn4PImHavZQnHTXbnvleyZvXh_bx1k56WWzBic";
 
-      const supabase = supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_ANON_KEY
-      );
-    </script>
-
-    
     <script>
         // ============================================
         // APPLICATION STATE
@@ -1538,8 +1483,8 @@
                 // Create New Session
                 state.sessions.push({
                     id: crypto.randomUUID(),
-                    local_id: crypto.randomUUID(),
-                    startedAt: state.startTime ? new Date(state.startTime).toISOString() : null,
+                    // If a date is selected in calendar, use that date + current time
+                    // Otherwise use now
                     endedAt: state.selectedDate ?
                         new Date(state.selectedDate.setHours(new Date().getHours(), new Date().getMinutes())).toISOString()
                         : new Date().toISOString(),
@@ -1663,87 +1608,12 @@
             track.offsetHeight; /* trigger reflow */
             track.style.animation = '';
         }
-        
-// ============================================
-// SUPABASE SYNC
-// ============================================
-async function syncSessionsToSupabase() {
-  const { data } = await supabase.auth.getSession();
-  const user = data?.session?.user;
 
-  if (!user) return;
-
-  if (!state.sessions.length) {
-    console.log('No sessions to sync');
-    return;
-  }
-
-  const rows = state.sessions.map(s => ({
-    user_id: user.id,
-    ended_at: s.endedAt,
-    duration_seconds: s.durationSeconds,
-    note: s.note || null,
-    local_id: s.id
-  }));
-
-  const { error } = await supabase
-    .from('focus')
-    .upsert(rows, { onConflict: 'local_id' });
-
-  if (error) {
-    console.error('Sync failed:', error);
-    alert('Sync failed');
-    return;
-  }
-
-  console.log('Synced', rows.length, 'sessions');
-
-  const syncBtn = document.getElementById('syncBtn');
-  console.log('syncBtn:', syncBtn);
-  if (syncBtn) {
-    syncBtn.addEventListener('click', () => {
-      console.log('SYNC CLICKED');
-      handleSyncClick();
-    });
-}
-
-// ============================================
-// AUTH / GOOGLE LOGIN
-// ============================================
-async function handleSyncClick() {
-  const { data } = await supabase.auth.getSession();
-
-  // если не залогинен → логин
-  if (!data.session) {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
-      }
-    });
-    return;
-  }
-
-  // если залогинен → синхронизация
-  await syncSessionsToSupabase();
-}
-
-
-// ============================================
-// INITIALIZATION
-// ============================================
-async function init() {
-  loadSessions();
-  updateTimerDisplay();
-
-  const { data } = await supabase.auth.getSession();
-  if (data.session) {
-    const syncBtn = document.getElementById('syncBtn');
-    if (syncBtn) syncBtn.textContent = 'Synced';
-  }
-}
-
-init();
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        loadSessions();
+        updateTimerDisplay();
     </script>
 
 </body>
